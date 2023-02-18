@@ -1,0 +1,195 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Home page";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Welcome</h1>
+</div>
+
+
+<p>
+    <input type="submit" id="getData" value="Получить данные" />
+</p>
+
+<div id="dataBlock" style="display:none">
+    <h2>Список товаров</h2>
+    <div>
+        <input  id="bookId" />
+        <dl>
+            <dt>Название:</dt>
+            <dd><input id="name" /></dd>
+            <dt>Автор:</dt>
+            <dd><input id="author" /></dd>
+        </dl>
+
+        <p>
+            <button id="saveBtn">Сохранить</button>
+            <button id="resetBtn">Сбросить</button>
+        </p>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Название</th>
+                <th>Автор</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody cellpadding="3">
+        </tbody>
+    </table>
+
+
+
+</div>
+
+<script>
+    var apiUrl = "http://localhost:80/api/books/";
+    
+    document.getElementById("getData").addEventListener("click", async e => {
+        e.preventDefault();
+        const response = await fetch(apiUrl, {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        });
+        if (response.ok === true) {
+            document.getElementById("dataBlock").style.display = "block";
+            
+            const books = await response.json();
+            const rows = document.querySelector("tbody");
+            rows.innerHTML = "";
+            // добавляем полученные элементы в таблицу
+            books.forEach(book => rows.append(row(book)));
+        }
+        else
+            console.log("Status: ", response.status);
+    });
+    // Получение одного пользователя
+    async function getBook(id) {
+        const response = await fetch(apiUrl + id, {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        });
+        if (response.ok === true) {
+            const book = await response.json();
+            document.getElementById("bookId").value = book.id;
+            document.getElementById("name").value = book.title;
+            document.getElementById("author").value = book.author;
+        }
+        else {
+            // если произошла ошибка, получаем сообщение об ошибке
+            const error = await response.json();
+            console.log(error.message); // и выводим его на консоль
+        }
+    }
+    // Добавление пользователя
+    async function createProduct(name, author) {
+        const response = await fetch(apiUrl, {
+            method: "POST",
+            headers: {
+                "Accept": "application/json",
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                title: name,
+                author: author
+            })
+        });
+        if (response.ok === true) {
+            const book = await response.json();
+            document.querySelector("tbody").append(row(book));
+        }
+        else {
+            const error = await response.json();
+            console.log(error.message);
+        }
+    }
+    // Изменение пользователя
+    async function editProduct(id, name, author) {
+        const response = await fetch(apiUrl + id, {
+            method: "PUT",
+            headers: {
+                "Accept": "application/json",
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                id: id,
+                title: name,
+                author: author
+            })
+        });
+        if (response.ok === true) {
+            document.querySelector(`tr[data-rowid='${id}']`).replaceWith(row({
+                id: id,
+                title: name,
+                author: author
+            }));
+        }
+        else {
+            const error = await response.json();
+            console.log(error.message);
+        }
+    }
+    // Удаление пользователя
+    async function deleteBook(id) {
+        const response = await fetch(apiUrl + id, {
+            method: "DELETE",
+            headers: {
+                "Accept": "application/json"
+            }
+        });
+        if (response.ok === true) {
+            document.querySelector(`tr[data-rowid='${id}']`).remove();
+        }
+        else {
+            const error = await response.json();
+            console.log(error.message);
+        }
+    }
+    // создание строки для таблицы
+    function row(book) {
+        const tr = document.createElement("tr");
+        tr.setAttribute("data-rowid", book.id);
+        const nameTd = document.createElement("td");
+        nameTd.append(book.title);
+        tr.append(nameTd);
+        const authorTd = document.createElement("td");
+        authorTd.append(book.author);
+        tr.append(authorTd);
+        const linksTd = document.createElement("td");
+        const editLink = document.createElement("button");
+        editLink.append("Изменить");
+        editLink.addEventListener("click", async () => await getBook(book.id));
+        linksTd.append(editLink);
+        const removeLink = document.createElement("button");
+        removeLink.append("Удалить");
+        removeLink.addEventListener("click", async () => await deleteBook(book.id));
+        linksTd.append(removeLink);
+        tr.appendChild(linksTd);
+        return tr;
+    }
+    // сброс данных формы после отправки
+    function reset() {
+        document.getElementById("bookId").value = "";
+        document.getElementById("name").value = "";
+        document.getElementById("author").value = "";
+    }
+    // сброс значений формы
+    document.getElementById("resetBtn").addEventListener("click", () => reset());
+    document.getElementById("saveBtn").addEventListener("click", async () => {
+        const id = document.getElementById("bookId").value;
+        const name = document.getElementById("name").value;
+        const author = document.getElementById("author").value;
+        if (id === "")
+            await createProduct(name, author);
+        else
+            await editProduct(id, name, author);
+        reset();
+    });
+</script>
